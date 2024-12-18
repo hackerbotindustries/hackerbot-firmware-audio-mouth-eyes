@@ -2,10 +2,10 @@
 Hackerbot Industries, LLC
 Ian Bernstein
 Created: April 2024
-Updated: 2024.11.11
+Updated: 2024.12.17
 
-This sketch is written for the "Audio/Mouth" PCB and controls the mouth of
-hackerbot.
+This sketch is written for the "Audio/Mouth/Eye" PCBA and controls the mouth of
+hackerbot. It also acts as a command pass through to the eyes.
 
 TODO - Add I2C Slave code so other parts of hackerbot can send commands change
 modes for the mouth. Add a mode for raw control of the mouth.
@@ -33,9 +33,11 @@ int ledState = LOW;
 long blinkInterval = 1000;
 
 void setup() {
-  //DEBUG_SERIAL.begin(115200);
-  delay(50);
-  //DEBUG_SERIAL.println("Mouth starting up...");
+  unsigned long serialTimout = millis();
+
+  DEBUG_SERIAL.begin(115200);
+  while(!DEBUG_SERIAL && millis() - serialTimout <= 5000);
+
   analogReadResolution(12);
 
 
@@ -63,6 +65,8 @@ void setup() {
 
   // Initialize the onboard Neopixel
   onboard_pixel.begin();
+
+  DEBUG_SERIAL.println("INFO: Starting application...");
 }
 
 
