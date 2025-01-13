@@ -2,7 +2,7 @@
 Hackerbot Industries, LLC
 Ian Bernstein
 Created: April 2024
-Updated: 2024.12.17
+Updated: 2025.01.07
 
 This sketch is written for the "Audio/Mouth/Eye" PCBA and controls the mouth of
 hackerbot. It also acts as a command pass through to the eyes.
@@ -12,34 +12,120 @@ modes for the mouth. Add a mode for raw control of the mouth.
 *********************************************************************************/
 
 #include <Adafruit_NeoPixel.h>
+#include <SerialCmd.h>
+#include <Wire.h>
 
+// Audio Mouth Eyes software version
+#define VERSION_NUMBER 2
+
+// I2C address (0x5A)
+#define I2C_ADDRESS 90
+
+
+// Defines and variables for spectrum analyzer
 #define STROBE 2
 #define RESET 3
 #define DC_One A0
-#define PIN 1
-#define NUMPIXELS 6 // Popular NeoPixel ring size
-
-#define DEBUG_SERIAL Serial
-
-Adafruit_NeoPixel pixels(NUMPIXELS, PIN, NEO_GRB + NEO_KHZ800);
-Adafruit_NeoPixel onboard_pixel(1, PIN_NEOPIXEL);
 
 int freq_amp;
 int Frequencies_One[7];
 int i;
 
+// Defines for mouth neopixel
+#define PIN_MOUTH 1
+#define NUMPIXELS 6 // Popular NeoPixel ring size
+
+// Set up neopixels
+Adafruit_NeoPixel pixels(NUMPIXELS, PIN_MOUTH, NEO_GRB + NEO_KHZ800);
+Adafruit_NeoPixel onboard_pixel(1, PIN_NEOPIXEL);
+
+// Timing variables
 long previousMillis = 0;
 int ledState = LOW;
 long blinkInterval = 1000;
 
+// Other defines and variables
+byte I2CRxArray[16];
+byte I2CTxArray[16];
+byte cmd = 0;
+
+// Set up the serial command processor
+SerialCmd mySerCmd(Serial);
+
+
+// I2C Rx Handler
+void I2C_RxHandler(int numBytes) {
+  Serial.print("INFO: I2C Byte Received... ");
+  for (int i = 0; i < numBytes; i++) {
+    I2CRxArray[i] = Wire.read();
+    Serial.print("0x");
+    Serial.print(I2CRxArray[i], HEX);
+    Serial.print(" ");
+  }
+
+  Serial.println();
+
+  // Parse incoming commands
+  switch (I2CRxArray[0]) {
+    case 0x01: // Ping
+      cmd = 0x01;
+      I2CTxArray[0] = 0x01;
+      break;
+    case 0x02: // Version
+      cmd = 0x02;
+      I2CTxArray[0] = VERSION_NUMBER;
+      break;
+  }
+}
+
+// I2C Tx Handler
+void I2C_TxHandler(void) {
+  switch (cmd) {
+    case 0x01: // Ping
+      Wire.write(I2CTxArray[0]);
+      break;
+    case 0x02: // Version
+      Wire.write(I2CTxArray[0]);
+      break;
+  }
+}
+
+
+// -------------------------------------------------------
+// User Functions
+// -------------------------------------------------------
+void sendOK(void) {
+  mySerCmd.Print((char *) "INFO: OK\r\n");
+}
+
+
+// -------------------------------------------------------
+// Functions for SerialCmd
+// -------------------------------------------------------
+void send_PING(void) {
+  sendOK();
+}
+
+
+// -------------------------------------------------------
+// setup()
+// -------------------------------------------------------
 void setup() {
   unsigned long serialTimout = millis();
 
-  DEBUG_SERIAL.begin(115200);
-  while(!DEBUG_SERIAL && millis() - serialTimout <= 5000);
+  Serial.begin(115200);
+  while(!Serial && millis() - serialTimout <= 5000);
 
+  // Define serial commands
+  mySerCmd.AddCmd("PING", SERIALCMD_FROMALL, send_PING);
+
+  // Initialize I2C (Slave Mode: address=0x5A)
+  Wire.begin(I2C_ADDRESS);
+  Wire.onReceive(I2C_RxHandler);
+  Wire.onRequest(I2C_TxHandler);
+
+  // Initialize spectrum analyzer
   analogReadResolution(12);
-
 
   pinMode(STROBE, OUTPUT);
   pinMode(RESET, OUTPUT);
@@ -48,7 +134,6 @@ void setup() {
   digitalWrite(STROBE, HIGH);
   digitalWrite(RESET, HIGH);
   
-  //Initialize Spectrum Analyzer
   digitalWrite(STROBE, LOW);
   delay(1);
   digitalWrite(RESET, HIGH);
@@ -66,10 +151,13 @@ void setup() {
   // Initialize the onboard Neopixel
   onboard_pixel.begin();
 
-  DEBUG_SERIAL.println("INFO: Starting application...");
+  Serial.println("INFO: Starting application...");
 }
 
 
+// -------------------------------------------------------
+// loop()
+// -------------------------------------------------------
 void loop() {
   unsigned long currentMillis = millis();
 
@@ -96,7 +184,7 @@ void loop() {
 /*******************Pull frquencies from Spectrum Shield********************/
 void Read_Frequencies(){
   //Read frequencies for each band
-  for (freq_amp = 0; freq_amp<7; freq_amp++)
+  for (freq_amp = 0; freq_amp < 7; freq_amp++)
   {
     digitalWrite(STROBE, HIGH);
     delayMicroseconds(50);
@@ -110,19 +198,18 @@ void Read_Frequencies(){
       Frequencies_One[freq_amp] = 0;
     }
 
-    //DEBUG_SERIAL.print(freq_amp);
-    //DEBUG_SERIAL.print(": ");
-    //DEBUG_SERIAL.print(Frequencies_One[freq_amp]);
-    //DEBUG_SERIAL.print(" - ");
-    //DEBUG_SERIAL.println(map(Frequencies_One[freq_amp], 0, 4095-450, 0, 255));
+    //Serial.print(freq_amp);
+    //Serial.print(": ");
+    //Serial.print(Frequencies_One[freq_amp]);
+    //Serial.print(" - ");
+    //Serial.println(map(Frequencies_One[freq_amp], 0, 4095-450, 0, 255));
   }
 }
 
 /*******************Light LEDs based on frequencies*****************************/
 void Graph_Frequencies(){
-   for( i= 0; i<=5; i++)
-   {
-     pixels.setPixelColor(i, pixels.Color(0, 0, map(Frequencies_One[i], 0, 4095-450, 0, 255)));
-   }
-   pixels.show();
+  for(i = 0; i <= 5; i++) {
+    pixels.setPixelColor(i, pixels.Color(0, 0, map(Frequencies_One[i + 1], 0, 4095-450, 0, 255)));
+  }
+  pixels.show();
 }
