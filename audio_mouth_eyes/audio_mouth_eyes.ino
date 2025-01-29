@@ -21,6 +21,12 @@ modes for the mouth. Add a mode for raw control of the mouth.
 // I2C address (0x5A)
 #define I2C_ADDRESS 90
 
+// I2C command addresses
+// FIXME: need this to be sharable between projects - decide between a common library, a shared include directory (perhaps every sub-fw #include's a file from fw_main_controller?), or some other scheme
+#define I2C_COMMAND_PING 0x01
+#define I2C_COMMAND_VERSION 0x02
+#define I2C_COMMAND_IDLE 0x08
+#define I2C_COMMAND_LOOK 0x09
 
 // Defines and variables for spectrum analyzer
 #define STROBE 2
@@ -67,12 +73,12 @@ void I2C_RxHandler(int numBytes) {
 
   // Parse incoming commands
   switch (I2CRxArray[0]) {
-    case 0x01: // Ping
-      cmd = 0x01;
+    case I2C_COMMAND_PING: // Ping
+      cmd = I2C_COMMAND_PING;
       I2CTxArray[0] = 0x01;
       break;
-    case 0x02: // Version
-      cmd = 0x02;
+    case I2C_COMMAND_VERSION: // Version
+      cmd = I2C_COMMAND_VERSION;
       I2CTxArray[0] = VERSION_NUMBER;
       break;
   }
@@ -81,10 +87,10 @@ void I2C_RxHandler(int numBytes) {
 // I2C Tx Handler
 void I2C_TxHandler(void) {
   switch (cmd) {
-    case 0x01: // Ping
+    case I2C_COMMAND_PING: // Ping
       Wire.write(I2CTxArray[0]);
       break;
-    case 0x02: // Version
+    case I2C_COMMAND_VERSION: // Version
       Wire.write(I2CTxArray[0]);
       break;
   }
