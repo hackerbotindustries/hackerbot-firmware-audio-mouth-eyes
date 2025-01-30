@@ -14,6 +14,7 @@ modes for the mouth. Add a mode for raw control of the mouth.
 #include <Adafruit_NeoPixel.h>
 #include <SerialCmd.h>
 #include <Wire.h>
+#include "HackerbotSerialCmd.h"
 
 // Audio Mouth Eyes software version
 #define VERSION_NUMBER 2
@@ -57,7 +58,7 @@ byte I2CTxArray[16];
 byte cmd = 0;
 
 // Set up the serial command processor
-SerialCmd mySerCmd(Serial);
+HackerbotSerialCmd mySerCmd(Serial);
 int8_t ret;
 
 
@@ -135,28 +136,22 @@ void send_PING(void) {
 
 void set_GAZE(void) {
   char buf[80] = {0};
-  char* eyeTargetXStr = mySerCmd.ReadNext();
-  char* eyeTargetYStr = mySerCmd.ReadNext();
+  float eyeTargetX = 0.0;
+  float eyeTargetY = 0.0;
 
-  if ((eyeTargetXStr == NULL) || (eyeTargetYStr == NULL)) {
+  if (!mySerCmd.ReadNextFloat(&eyeTargetX) || !mySerCmd.ReadNextFloat(&eyeTargetY)) {
     mySerCmd.Print((char *) "ERROR: Missing parameter\r\n");
     return;
   }
 
-  float eyeTargetX = constrain(atof(eyeTargetXStr), -1.0, 1.0);
-  float eyeTargetY = constrain(atof(eyeTargetYStr), -1.0, 1.0);
+  // Constrain values to acceptable range
+  eyeTargetX = constrain(eyeTargetX, -1.0, 1.0);
+  eyeTargetY = constrain(eyeTargetY, -1.0, 1.0);
 
   sprintf(buf, "STATUS: Setting: eyeTargetX: %.2f, eyeTargetY: %.2f\r\n", eyeTargetX, eyeTargetY);
   mySerCmd.Print(buf);
 
-  // The monster mask eyes firmware isn't currently using SerialCmd and sscanf on Arduino doesn't
-  // apear to like floats.  Bump these to signed int8_t for the journey over and return to floats
-  // on the other side:
-  sprintf(buf, "GAZE,%d,%d", int8_t(eyeTargetX*100), int8_t(eyeTargetY*100));
-
-  mySerCmd.Print(buf);
-  mySerCmd.Print((char *) "\r\n");
-
+  sprintf(buf, "GAZE,%.2f,%.2f", eyeTargetX, eyeTargetY);
   Serial1.print(buf);
   Serial1.println();
 
@@ -170,7 +165,9 @@ void setup() {
   unsigned long serialTimout = millis();
 
   Serial1.begin(115200);
+  while(!Serial1 && millis() - serialTimout <= 5000);
 
+  serialTimout = millis();
   Serial.begin(115200);
   while(!Serial && millis() - serialTimout <= 5000);
 
