@@ -14,6 +14,7 @@ modes for the mouth. Add a mode for raw control of the mouth.
 #include <Adafruit_NeoPixel.h>
 #include <SerialCmd.h>
 #include <Wire.h>
+#include "HackerbotSerialCmd.h"
 
 // Audio Mouth Eyes software version
 #define VERSION_NUMBER 2
@@ -21,6 +22,13 @@ modes for the mouth. Add a mode for raw control of the mouth.
 // I2C address (0x5A)
 #define I2C_ADDRESS 90
 
+// I2C command addresses
+// FIXME: need this to be sharable between projects - decide between a common library, a shared include directory (perhaps every sub-fw #include's a file from fw_main_controller?), or some other scheme
+#define I2C_COMMAND_PING 0x01
+#define I2C_COMMAND_VERSION 0x02
+#define I2C_COMMAND_IDLE 0x08
+#define I2C_COMMAND_LOOK 0x09
+#define I2C_COMMAND_GAZE 0x0A
 
 // Defines and variables for spectrum analyzer
 #define STROBE 2
@@ -50,11 +58,15 @@ byte I2CTxArray[16];
 byte cmd = 0;
 
 // Set up the serial command processor
-SerialCmd mySerCmd(Serial);
+HackerbotSerialCmd mySerCmd(Serial);
+int8_t ret;
 
 
 // I2C Rx Handler
 void I2C_RxHandler(int numBytes) {
+  String query = String();
+  char CharArray[32];
+
   Serial.print("INFO: I2C Byte Received... ");
   for (int i = 0; i < numBytes; i++) {
     I2CRxArray[i] = Wire.read();
@@ -67,13 +79,29 @@ void I2C_RxHandler(int numBytes) {
 
   // Parse incoming commands
   switch (I2CRxArray[0]) {
-    case 0x01: // Ping
-      cmd = 0x01;
+    case I2C_COMMAND_PING: // Ping
+      cmd = I2C_COMMAND_PING;
       I2CTxArray[0] = 0x01;
       break;
-    case 0x02: // Version
-      cmd = 0x02;
+    case I2C_COMMAND_VERSION: // Version
+      cmd = I2C_COMMAND_VERSION;
       I2CTxArray[0] = VERSION_NUMBER;
+      break;
+    case I2C_COMMAND_GAZE: // Set_GAZE Command - Params(int8_t x, int8_t y) where x and y are >= -100 && <= 100 with 0,0 eyes looking centered straight ahead
+      Serial.println("INFO: Set_GAZE command received");
+
+      if (numBytes != 3) {
+        Serial.print("INFO: Set_GAZE didn't receive expected byte count - ");
+        Serial.print(numBytes);
+        Serial.println(" != 3");
+        break;
+      }
+      query = "GAZE," + (String)(float((int8_t)I2CRxArray[1]) / 100.0f) + "," + (String)(float((int8_t)I2CRxArray[2]) / 100.0f);
+
+      // Convert the query string to a char array
+      query.toCharArray(CharArray, query.length() + 1);
+      Serial.println(CharArray);
+      ret = mySerCmd.ReadString(CharArray);
       break;
   }
 }
@@ -81,10 +109,10 @@ void I2C_RxHandler(int numBytes) {
 // I2C Tx Handler
 void I2C_TxHandler(void) {
   switch (cmd) {
-    case 0x01: // Ping
+    case I2C_COMMAND_PING: // Ping
       Wire.write(I2CTxArray[0]);
       break;
-    case 0x02: // Version
+    case I2C_COMMAND_VERSION: // Version
       Wire.write(I2CTxArray[0]);
       break;
   }
@@ -106,6 +134,29 @@ void send_PING(void) {
   sendOK();
 }
 
+void set_GAZE(void) {
+  char buf[80] = {0};
+  float eyeTargetX = 0.0;
+  float eyeTargetY = 0.0;
+
+  if (!mySerCmd.ReadNextFloat(&eyeTargetX) || !mySerCmd.ReadNextFloat(&eyeTargetY)) {
+    mySerCmd.Print((char *) "ERROR: Missing parameter\r\n");
+    return;
+  }
+
+  // Constrain values to acceptable range
+  eyeTargetX = constrain(eyeTargetX, -1.0, 1.0);
+  eyeTargetY = constrain(eyeTargetY, -1.0, 1.0);
+
+  sprintf(buf, "STATUS: Setting: eyeTargetX: %.2f, eyeTargetY: %.2f\r\n", eyeTargetX, eyeTargetY);
+  mySerCmd.Print(buf);
+
+  sprintf(buf, "GAZE,%.2f,%.2f", eyeTargetX, eyeTargetY);
+  Serial1.print(buf);
+  Serial1.println();
+
+  sendOK();
+}
 
 // -------------------------------------------------------
 // setup()
@@ -113,11 +164,16 @@ void send_PING(void) {
 void setup() {
   unsigned long serialTimout = millis();
 
+  Serial1.begin(115200);
+  while(!Serial1 && millis() - serialTimout <= 5000);
+
+  serialTimout = millis();
   Serial.begin(115200);
   while(!Serial && millis() - serialTimout <= 5000);
 
   // Define serial commands
   mySerCmd.AddCmd("PING", SERIALCMD_FROMALL, send_PING);
+  mySerCmd.AddCmd("GAZE", SERIALCMD_FROMALL, set_GAZE);
 
   // Initialize I2C (Slave Mode: address=0x5A)
   Wire.begin(I2C_ADDRESS);
@@ -177,6 +233,11 @@ void loop() {
       onboard_pixel.show();
       ledState = LOW;
     }
+  }
+
+  ret = mySerCmd.ReadSer();
+  if (ret == 0) {
+    mySerCmd.Print((char *) "ERROR: Urecognized command\r\n");
   }
 }
 
