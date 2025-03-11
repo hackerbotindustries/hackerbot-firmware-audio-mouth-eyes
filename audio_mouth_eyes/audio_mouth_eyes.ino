@@ -14,11 +14,11 @@ modes for the mouth. Add a mode for raw control of the mouth.
 #include <Adafruit_NeoPixel.h>
 #include <SerialCmd.h>
 #include <Wire.h>
-#include "HackerbotShared.h"
-#include "HackerbotSerialCmd.h"
+#include "Hackerbot_Shared.h"
+#include "SerialCmd_Helper.h"
 
 // Audio Mouth Eyes software version
-#define VERSION_NUMBER 2
+#define VERSION_NUMBER 3
 
 // Defines and variables for spectrum analyzer
 #define STROBE 2
@@ -48,7 +48,7 @@ byte I2CTxArray[16];
 byte cmd = 0;
 
 // Set up the serial command processor
-HackerbotSerialCmd mySerCmd(Serial);
+SerialCmdHelper mySerCmd(Serial);
 int8_t ret;
 
 
@@ -77,7 +77,7 @@ void I2C_RxHandler(int numBytes) {
       cmd = I2C_COMMAND_VERSION;
       I2CTxArray[0] = VERSION_NUMBER;
       break;
-    case I2C_COMMAND_FACE_GAZE: // Set_GAZE Command - Params(int8_t x, int8_t y) where x and y are >= -100 && <= 100 with 0,0 eyes looking centered straight ahead
+    case I2C_COMMAND_H_GAZE: // Set_GAZE Command - Params(int8_t x, int8_t y) where x and y are >= -100 && <= 100 with 0,0 eyes looking centered straight ahead
       Serial.println("INFO: Set_GAZE command received");
 
       if (numBytes != 3) {
@@ -124,6 +124,12 @@ void send_PING(void) {
   sendOK();
 }
 
+
+// Sets the gaze of the Hackerbot head's eyes
+// Parameters
+// float: x (position between -1.0 and 1.0)
+// float: y (position between -1.0 and 1.0)
+// Example - "GAZE,-0.8,0.2"
 void set_GAZE(void) {
   char buf[80] = {0};
   float eyeTargetX = 0.0;
@@ -215,7 +221,7 @@ void loop() {
     previousMillis = currentMillis;
 
     if (ledState == LOW) {
-      onboard_pixel.setPixelColor(0, onboard_pixel.Color(0, 0, 10));
+      onboard_pixel.setPixelColor(0, onboard_pixel.Color(0, 10, 0));
       onboard_pixel.show();
       ledState = HIGH;
     } else {
