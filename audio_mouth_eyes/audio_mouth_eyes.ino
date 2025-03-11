@@ -14,21 +14,11 @@ modes for the mouth. Add a mode for raw control of the mouth.
 #include <Adafruit_NeoPixel.h>
 #include <SerialCmd.h>
 #include <Wire.h>
-#include "HackerbotSerialCmd.h"
+#include "Hackerbot_Shared.h"
+#include "SerialCmd_Helper.h"
 
 // Audio Mouth Eyes software version
-#define VERSION_NUMBER 2
-
-// I2C address (0x5A)
-#define I2C_ADDRESS 90
-
-// I2C command addresses
-// FIXME: need this to be sharable between projects - decide between a common library, a shared include directory (perhaps every sub-fw #include's a file from fw_main_controller?), or some other scheme
-#define I2C_COMMAND_PING 0x01
-#define I2C_COMMAND_VERSION 0x02
-#define I2C_COMMAND_IDLE 0x08
-#define I2C_COMMAND_LOOK 0x09
-#define I2C_COMMAND_GAZE 0x0A
+#define VERSION_NUMBER 3
 
 // Defines and variables for spectrum analyzer
 #define STROBE 2
@@ -58,7 +48,7 @@ byte I2CTxArray[16];
 byte cmd = 0;
 
 // Set up the serial command processor
-HackerbotSerialCmd mySerCmd(Serial);
+SerialCmdHelper mySerCmd(Serial);
 int8_t ret;
 
 
@@ -87,7 +77,7 @@ void I2C_RxHandler(int numBytes) {
       cmd = I2C_COMMAND_VERSION;
       I2CTxArray[0] = VERSION_NUMBER;
       break;
-    case I2C_COMMAND_GAZE: // Set_GAZE Command - Params(int8_t x, int8_t y) where x and y are >= -100 && <= 100 with 0,0 eyes looking centered straight ahead
+    case I2C_COMMAND_H_GAZE: // Set_GAZE Command - Params(int8_t x, int8_t y) where x and y are >= -100 && <= 100 with 0,0 eyes looking centered straight ahead
       Serial.println("INFO: Set_GAZE command received");
 
       if (numBytes != 3) {
@@ -134,6 +124,12 @@ void send_PING(void) {
   sendOK();
 }
 
+
+// Sets the gaze of the Hackerbot head's eyes
+// Parameters
+// float: x (position between -1.0 and 1.0)
+// float: y (position between -1.0 and 1.0)
+// Example - "GAZE,-0.8,0.2"
 void set_GAZE(void) {
   char buf[80] = {0};
   float eyeTargetX = 0.0;
@@ -176,7 +172,7 @@ void setup() {
   mySerCmd.AddCmd("GAZE", SERIALCMD_FROMALL, set_GAZE);
 
   // Initialize I2C (Slave Mode: address=0x5A)
-  Wire.begin(I2C_ADDRESS);
+  Wire.begin(AME_I2C_ADDRESS);
   Wire.onReceive(I2C_RxHandler);
   Wire.onRequest(I2C_TxHandler);
 
@@ -225,7 +221,7 @@ void loop() {
     previousMillis = currentMillis;
 
     if (ledState == LOW) {
-      onboard_pixel.setPixelColor(0, onboard_pixel.Color(0, 0, 10));
+      onboard_pixel.setPixelColor(0, onboard_pixel.Color(0, 10, 0));
       onboard_pixel.show();
       ledState = HIGH;
     } else {
