@@ -1,14 +1,17 @@
 /****************************************************************************** 
 Hackerbot Industries, LLC
-Ian Bernstein
-Created: April 2024
-Updated: 2025.01.07
+Created By: Ian Bernstein
+Created:    April 2024
+Updated:    2025.03.11
 
 This sketch is written for the "Audio/Mouth/Eye" PCBA and controls the mouth of
 hackerbot. It also acts as a command pass through to the eyes.
 
 TODO - Add I2C Slave code so other parts of hackerbot can send commands change
 modes for the mouth. Add a mode for raw control of the mouth.
+
+Special thanks to the following for their code contributions to this codebase:
+Randy  - https://github.com/rbeiter
 *********************************************************************************/
 
 #include <Adafruit_NeoPixel.h>
@@ -254,12 +257,6 @@ void Read_Frequencies(){
     if (Frequencies_One[freq_amp] < 0) {
       Frequencies_One[freq_amp] = 0;
     }
-
-    //Serial.print(freq_amp);
-    //Serial.print(": ");
-    //Serial.print(Frequencies_One[freq_amp]);
-    //Serial.print(" - ");
-    //Serial.println(map(Frequencies_One[freq_amp], 0, 4095-450, 0, 255));
   }
 }
 
