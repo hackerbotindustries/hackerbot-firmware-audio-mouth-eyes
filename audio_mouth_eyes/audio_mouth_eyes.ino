@@ -2,7 +2,7 @@
 Hackerbot Industries, LLC
 Created By: Ian Bernstein
 Created:    April 2024
-Updated:    2025.03.11
+Updated:    2025.03.18
 
 This sketch is written for the "Audio/Mouth/Eye" PCBA and controls the mouth of
 hackerbot. It also acts as a command pass through to the eyes.
@@ -21,7 +21,7 @@ Randy  - https://github.com/rbeiter
 #include "SerialCmd_Helper.h"
 
 // Audio Mouth Eyes software version
-#define VERSION_NUMBER 3
+#define VERSION_NUMBER 4
 
 // Defines and variables for spectrum analyzer
 #define STROBE 2
@@ -127,6 +127,16 @@ void send_PING(void) {
   sendOK();
 }
 
+// Reports the current fw version
+// Example - "VERSION"
+void Get_Version(void) {
+  mySerCmd.Print((char *) "INFO: Audio Mouth Eyes Firmware (v");
+  mySerCmd.Print(VERSION_NUMBER);
+  mySerCmd.Print((char *) ".0)\r\n");
+
+  sendOK();
+}
+
 
 // Sets the gaze of the Hackerbot head's eyes
 // Parameters
@@ -172,7 +182,8 @@ void setup() {
 
   // Define serial commands
   mySerCmd.AddCmd("PING", SERIALCMD_FROMALL, send_PING);
-  mySerCmd.AddCmd("GAZE", SERIALCMD_FROMALL, set_GAZE);
+  mySerCmd.AddCmd("VERSION", SERIALCMD_FROMALL, Get_Version);
+  mySerCmd.AddCmd("H_GAZE", SERIALCMD_FROMALL, set_GAZE);
 
   // Initialize I2C (Slave Mode: address=0x5A)
   Wire.begin(AME_I2C_ADDRESS);
