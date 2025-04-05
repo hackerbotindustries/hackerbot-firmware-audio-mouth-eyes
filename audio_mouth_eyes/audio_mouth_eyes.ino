@@ -1,8 +1,11 @@
-/****************************************************************************** 
-Hackerbot Industries, LLC
+/*********************************************************************************
+Copyright (c) 2025 Hackerbot Industries LLC
+This source code is licensed under the MIT license found in the LICENSE file in 
+the root directory of this source tree.
+
 Created By: Ian Bernstein
 Created:    April 2024
-Updated:    2025.03.18
+Updated:    April 3, 2025
 
 This sketch is written for the "Audio/Mouth/Eye" PCBA and controls the mouth of
 hackerbot. It also acts as a command pass through to the eyes.
@@ -11,8 +14,10 @@ TODO - Add I2C Slave code so other parts of hackerbot can send commands change
 modes for the mouth. Add a mode for raw control of the mouth.
 
 Special thanks to the following for their code contributions to this codebase:
-Randy  - https://github.com/rbeiter
+Ian Bernstein - https://github.com/arobodude
+Randy Beiter - https://github.com/rbeiter
 *********************************************************************************/
+
 
 #include <Adafruit_NeoPixel.h>
 #include <SerialCmd.h>
